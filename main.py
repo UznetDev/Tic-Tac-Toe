@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI, Request
 from api.game import TicTacToe
 from loader import db
@@ -50,15 +49,25 @@ async def play(request: Request):
     # Player's move
     if not game.make_move(position, player):
         return {"board": game.board.tolist(), "message": "Invalid move"}
-    db.insert_move(game_id, move_number=move_number, player=player, position=position, result="ongoing")
+    db.insert_move(game_id, 
+                   move_number=move_number, 
+                   player=player, 
+                   position=position, 
+                   result="ongoing")
     move_number += 1
 
     if game.current_winner:
-        db.insert_move(game_id, move_number=move_number, player=player, position=position, result="win")
-        return {"board": game.board.tolist(), "message": f"Player {player} wins!"}
+        db.insert_move(game_id, 
+                       move_number=move_number, 
+                       player=player, 
+                       position=position, result="win")
+        return {"board": game.board.tolist(), 
+                "message": f"Player {player} wins!"}
 
     if game.is_draw():
-        db.insert_move(game_id, move_number=move_number, player=player, position=position, result="draw")
+        db.insert_move(game_id, 
+                       move_number=move_number, 
+                       player=player, position=position, result="draw")
         return {"board": game.board.tolist(), "message": "It's a draw!"}
 
     best_move = game.minimax(game.board.copy(), 2)['position']

@@ -9,7 +9,6 @@ class TicTacToe:
         return [(i, j) for i in range(3) for j in range(3) if self.board[i][j] == 0]
 
     def winner(self, player):
-        # Check rows, columns, and diagonals
         for i in range(3):
             if all([self.board[i][j] == player for j in range(3)]):
                 return True
@@ -35,7 +34,7 @@ class TicTacToe:
         return False
 
     def minimax(self, state, player):
-        max_player = 2  # Computer is player 2
+        max_player = 2
         other_player = 1 if player == 2 else 2
 
         if self.winner(other_player):
