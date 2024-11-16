@@ -4,3 +4,5 @@ env/
 .idea/
 .env
 command/
+__pycache__
+__pycache__/
