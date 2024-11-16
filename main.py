@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from api.game import TicTacToe
 from loader import db
 import numpy as np
@@ -8,12 +8,9 @@ games = {}
 game_id_counter = 1
 
 
-@app.post("/start_game")
-async def start_game(request: Request):
+@app.get("/start_game")
+def start_game(player_piece: int = Query(1), first_player: str = Query('user')):
     try:
-        data = await request.json()
-        player_piece = data.get('player_piece', 1)
-        first_player = data.get('first_player', 'user')
         global game_id_counter
         game_id = game_id_counter
         game_id_counter += 1
@@ -31,17 +28,19 @@ async def start_game(request: Request):
         raise HTTPException(status_code=500, detail=f"An error occurred while starting the game: {str(e)}")
 
 
-@app.post("/play")
-async def play(request: Request):
+@app.get("/play")
+def play(
+    game_id: int,
+    board: str,
+    position: str,
+    player: int = Query(1),
+    move_number: int = Query(1)
+):
     try:
-        data = await request.json()
-        board = np.array(data['board'])
-        position = data['position']
-        player = data.get('player', 1)
-        game_id = data['game_id']
-        move_number = data.get('move_number', 1)
-
+        board = np.array(eval(board))  # JSON ko'rinishdagi doskani massivga aylantirish
+        position = tuple(map(int, position.split(',')))  # Pozitsiyani tuple ko'rinishiga aylantirish
         game = games.get(game_id)
+
         if not game:
             raise HTTPException(status_code=404, detail="Invalid game ID")
 
@@ -50,30 +49,21 @@ async def play(request: Request):
         if game.current_winner or game.is_draw():
             return {"board": game.board.tolist(), "message": "Game over"}
 
-        # Player's move
+        # Foydalanuvchi yurishi
         if not game.make_move(position, player):
             return {"board": game.board.tolist(), "message": "Invalid move"}
-        db.insert_move(game_id, 
-                       move_number=move_number, 
-                       player=player, 
-                       position=position, 
-                       result="ongoing")
+        db.insert_move(game_id, move_number=move_number, player=player, position=position, result="ongoing")
         move_number += 1
 
         if game.current_winner:
-            db.insert_move(game_id, 
-                           move_number=move_number, 
-                           player=player, 
-                           position=position, result="win")
-            return {"board": game.board.tolist(), 
-                    "message": f"Player {player} wins!"}
+            db.insert_move(game_id, move_number=move_number, player=player, position=position, result="win")
+            return {"board": game.board.tolist(), "message": f"Player {player} wins!"}
 
         if game.is_draw():
-            db.insert_move(game_id, 
-                           move_number=move_number, 
-                           player=player, position=position, result="draw")
+            db.insert_move(game_id, move_number=move_number, player=player, position=position, result="draw")
             return {"board": game.board.tolist(), "message": "It's a draw!"}
 
+        # Kompyuter yurishi
         best_move = game.minimax(game.board.copy(), 2)['position']
         game.make_move(best_move, 2)
         db.insert_move(game_id, move_number=move_number, player=2, position=best_move, result="ongoing")

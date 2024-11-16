@@ -3,6 +3,10 @@
 <head>
     <title>Tic Tac Toe</title>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
         #board div {
             display: flex;
         }
@@ -11,6 +15,15 @@
             height: 60px;
             font-size: 24px;
             margin: 2px;
+            cursor: pointer;
+        }
+        #message {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        #error {
+            color: red;
+            font-size: 16px;
         }
     </style>
     <script>
@@ -19,48 +32,72 @@
             [0, 0, 0],
             [0, 0, 0]
         ];
-        let player = 1;
+        let player = 1; // User is player 1
         let game_id = null;
         let move_number = 1;
 
         async function startGame() {
-            const firstPlayer = document.querySelector('input[name="first_player"]:checked').value;
-            const response = await fetch('http://tic-tac-toe-game.codernet.uz/start_game', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    player_piece: player,
-                    first_player: firstPlayer
-                })
-            });
-            const data = await response.json();
-            game_id = data.game_id;
-            board = data.board;
-            document.getElementById('message').innerText = data.message;
-            renderBoard();
+            try {
+                const firstPlayer = document.querySelector('input[name="first_player"]:checked').value;
+                const response = await fetch('/start_game', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        player_piece: player,
+                        first_player: firstPlayer
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    document.getElementById('error').innerText = `Error: ${error.detail}`;
+                    return;
+                }
+
+                const data = await response.json();
+                game_id = data.game_id;
+                board = data.board;
+                document.getElementById('message').innerText = data.message;
+                document.getElementById('error').innerText = '';
+                renderBoard();
+            } catch (err) {
+                document.getElementById('error').innerText = `Unexpected error: ${err.message}`;
+            }
         }
 
         async function makeMove(x, y) {
-            if (board[x][y] !== 0) {
-                alert('Invalid move!');
-                return;
+            try {
+                if (board[x][y] !== 0) {
+                    alert('Invalid move!');
+                    return;
+                }
+                const response = await fetch('/play', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        game_id: game_id,
+                        board: board,
+                        player: player,
+                        position: [x, y],
+                        move_number: move_number
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    document.getElementById('error').innerText = `Error: ${error.detail}`;
+                    return;
+                }
+
+                const data = await response.json();
+                board = data.board;
+                document.getElementById('message').innerText = data.message;
+                document.getElementById('error').innerText = '';
+                move_number = data.move_number || move_number + 2;
+                renderBoard();
+            } catch (err) {
+                document.getElementById('error').innerText = `Unexpected error: ${err.message}`;
             }
-            const response = await fetch('http://tic-tac-toe-game.codernet.uz/play', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    game_id: game_id,
-                    board: board,
-                    player: player,
-                    position: [x, y],
-                    move_number: move_number
-                })
-            });
-            const data = await response.json();
-            board = data.board;
-            document.getElementById('message').innerText = data.message;
-            move_number = data.move_number || move_number + 2;
-            renderBoard();
         }
 
         function renderBoard() {
@@ -85,19 +122,13 @@
 <body>
     <h1>Tic Tac Toe</h1>
     <div>
-        <label>Select your piece:</label>
-        <select id="player_piece">
-            <option value="1">X</option>
-            <option value="2">O</option>
-        </select>
-    </div>
-    <div>
-        <label>Who starts first?</label>
+        <label>Select who starts:</label>
         <label><input type="radio" name="first_player" value="user" checked> User</label>
         <label><input type="radio" name="first_player" value="computer"> Computer</label>
     </div>
     <button id="startBtn">Start Game</button>
     <div id="board"></div>
     <p id="message"></p>
+    <p id="error"></p>
 </body>
 </html>
