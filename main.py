@@ -24,7 +24,8 @@ def start_game(player_piece: int = Query(1), first_player: str = Query('user')):
 
         return {"game_id": game_id, "board": game.board.tolist(), "message": "Game started"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred while starting the game: {str(e)}")
+        raise HTTPException(status_code=500, 
+                            detail=f"An error occurred while starting the game: {str(e)}")
 
 
 @app.get("/play")
@@ -36,8 +37,8 @@ def play(
     move_number: int = Query(1)
 ):
     try:
-        board = np.array(eval(board))  # JSON ko'rinishdagi doskani massivga aylantirish
-        position = tuple(map(int, position.split(',')))  # Pozitsiyani tuple ko'rinishiga aylantirish
+        board = np.array(eval(board))
+        position = tuple(map(int, position.split(',')))
         game = games.get(game_id)
 
         if not game:
@@ -48,7 +49,6 @@ def play(
         if game.current_winner or game.is_draw():
             return {"board": game.board.tolist(), "message": "Game over"}
 
-        # Foydalanuvchi yurishi
         if not game.make_move(position, player):
             return {"board": game.board.tolist(), "message": "Invalid move"}
         db.insert_move(game_id, move_number=move_number, player=player, position=position, result="ongoing")
@@ -78,4 +78,5 @@ def play(
 
         return {"board": game.board.tolist(), "message": "Game continues", "move_number": move_number}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred during gameplay: {str(e)}")
+        raise HTTPException(status_code=500, 
+                            detail=f"An error occurred during gameplay: {str(e)}")
