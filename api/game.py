@@ -35,16 +35,9 @@ class TicTacToe:
             return True
         return False
 
-    def minimax(self, state, player, depth=0):
-        """
-        Implement the Minimax algorithm with depth limiting.
-        - state: current board state
-        - player: the player making the move (1 or 2)
-        - depth: current depth of recursion (to prevent infinite loops)
-        """
+    def minimax(self, state, player, depth=0, max_depth=10):
         max_player = 2
         other_player = 1 if player == 2 else 2
-
         if self.winner(other_player):
             return {
                 'position': None,
@@ -52,16 +45,18 @@ class TicTacToe:
             }
         elif self.is_draw():
             return {'position': None, 'score': 0}
-        if player == max_player:
-            best = {'position': None, 'score': -np.inf}
-        else:
-            best = {'position': None, 'score': np.inf}
+        elif depth >= max_depth:
+            return {'position': None, 'score': 0}
 
+        # Recursive cases
+        if player == max_player:
+            best = {'position': None, 'score': -float('inf')}
+        else:
+            best = {'position': None, 'score': float('inf')}
         for possible_move in self.empty_squares():
             state[possible_move[0]][possible_move[1]] = player
-            sim_score = self.minimax(state, other_player, depth + 1)
+            sim_score = self.minimax(state, other_player, depth + 1, max_depth)
             state[possible_move[0]][possible_move[1]] = 0
-
             sim_score['position'] = possible_move
             if player == max_player:
                 if sim_score['score'] > best['score']:
