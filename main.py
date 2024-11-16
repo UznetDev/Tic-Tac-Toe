@@ -1,141 +1,77 @@
+# main.py
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from api.game import TicTacToe
+from loader import db
 import numpy as np
 
-app = FastAPI()
 
-boards = {}
+app = FastAPI()
 games = {}
+game_id_counter = 1
 
 
 @app.post("/start_game")
 async def start_game(request: Request):
     data = await request.json()
-    player_symbol = data.get("player_symbol", "X")
-    ai_symbol = "O" if player_symbol == "X" else "X"
-    player_turn = data.get("player_turn", True)
-    game_id = len(boards) + 1
-    board = np.full((3, 3), "")
-    boards[game_id] = board
-    games[game_id] = {
-        "player_symbol": player_symbol,
-        "ai_symbol": ai_symbol,
-        "player_turn": player_turn,
-        "status": "ongoing"
-    }
+    player_piece = data.get('player_piece', 1)
+    first_player = data.get('first_player', 'user')
+    global game_id_counter
+    game_id = game_id_counter
+    game_id_counter += 1
 
-    if not player_turn:
-        # AI makes the first move
-        move = get_best_move(board, ai_symbol, player_symbol)
-        board[move] = ai_symbol
+    game = TicTacToe()
+    games[game_id] = game
 
-    return JSONResponse({
-        "game_id": game_id,
-        "board": board.tolist(),
-        "status": games[game_id]["status"]
-    })
+    if first_player == 'computer':
+        best_move = game.minimax(game.board.copy(), 2)['position']
+        game.make_move(best_move, 2)
+        db.insert_move(game_id, move_number=1, player=2, position=best_move, result="ongoing")
 
+    return {"game_id": game_id, "board": game.board.tolist(), "message": "Game started"}
 
-@app.post("/make_move")
-async def make_move(request: Request):
+@app.post("/play")
+async def play(request: Request):
     data = await request.json()
-    game_id = data["game_id"]
-    row = data["row"]
-    col = data["col"]
+    board = np.array(data['board'])
+    position = data['position']
+    player = data.get('player', 1)
+    game_id = data['game_id']
+    move_number = data.get('move_number', 1)
 
-    board = boards[game_id]
-    game = games[game_id]
+    game = games.get(game_id)
+    if not game:
+        return {"message": "Invalid game ID"}
 
-    if board[row, col] != "":
-        return JSONResponse({"error": "Invalid move"}, status_code=400)
+    game.board = board
 
-    board[row, col] = game["player_symbol"]
+    if game.current_winner or game.is_draw():
+        return {"board": game.board.tolist(), "message": "Game over"}
 
-    if check_winner(board, game["player_symbol"]):
-        game["status"] = "player_won"
-        return JSONResponse({
-            "board": board.tolist(),
-            "status": game["status"]
-        })
+    # Player's move
+    if not game.make_move(position, player):
+        return {"board": game.board.tolist(), "message": "Invalid move"}
+    db.insert_move(game_id, move_number=move_number, player=player, position=position, result="ongoing")
+    move_number += 1
 
-    elif is_draw(board):
-        game["status"] = "draw"
-        return JSONResponse({
-            "board": board.tolist(),
-            "status": game["status"]
-        })
+    if game.current_winner:
+        db.insert_move(game_id, move_number=move_number, player=player, position=position, result="win")
+        return {"board": game.board.tolist(), "message": f"Player {player} wins!"}
 
-    # AI's turn
-    ai_move = get_best_move(board, game["ai_symbol"], game["player_symbol"])
-    board[ai_move] = game["ai_symbol"]
+    if game.is_draw():
+        db.insert_move(game_id, move_number=move_number, player=player, position=position, result="draw")
+        return {"board": game.board.tolist(), "message": "It's a draw!"}
 
-    if check_winner(board, game["ai_symbol"]):
-        game["status"] = "ai_won"
-    elif is_draw(board):
-        game["status"] = "draw"
+    best_move = game.minimax(game.board.copy(), 2)['position']
+    game.make_move(best_move, 2)
+    db.insert_move(game_id, move_number=move_number, player=2, position=best_move, result="ongoing")
+    move_number += 1
 
-    return JSONResponse({
-        "board": board.tolist(),
-        "status": game["status"]
-    })
+    if game.current_winner:
+        db.insert_move(game_id, move_number=move_number, player=2, position=best_move, result="win")
+        return {"board": game.board.tolist(), "message": "Computer wins!"}
 
+    if game.is_draw():
+        db.insert_move(game_id, move_number=move_number, player=2, position=best_move, result="draw")
+        return {"board": game.board.tolist(), "message": "It's a draw!"}
 
-def check_winner(board, symbol):
-    # Check rows, columns, and diagonals
-    for i in range(3):
-        if np.all(board[i, :] == symbol):
-            return True
-        if np.all(board[:, i] == symbol):
-            return True
-    if np.all(np.diag(board) == symbol):
-        return True
-    if np.all(np.diag(np.fliplr(board)) == symbol):
-        return True
-    return False
-
-
-def is_draw(board):
-    return np.all(board != "")
-
-
-def get_best_move(board, ai_symbol, player_symbol):
-    best_score = -np.inf
-    best_move = None
-
-    for idx, value in np.ndenumerate(board):
-        if value == "":
-            board[idx] = ai_symbol
-            score = minimax(board, 0, False, ai_symbol, player_symbol)
-            board[idx] = ""
-            if score > best_score:
-                best_score = score
-                best_move = idx
-    return best_move
-
-
-def minimax(board, depth, is_maximizing, ai_symbol, player_symbol):
-    if check_winner(board, ai_symbol):
-        return 1
-    elif check_winner(board, player_symbol):
-        return -1
-    elif is_draw(board):
-        return 0
-
-    if is_maximizing:
-        best_score = -np.inf
-        for idx, value in np.ndenumerate(board):
-            if value == "":
-                board[idx] = ai_symbol
-                score = minimax(board, depth + 1, False, ai_symbol, player_symbol)
-                board[idx] = ""
-                best_score = max(score, best_score)
-        return best_score
-    else:
-        best_score = np.inf
-        for idx, value in np.ndenumerate(board):
-            if value == "":
-                board[idx] = player_symbol
-                score = minimax(board, depth + 1, True, ai_symbol, player_symbol)
-                board[idx] = ""
-                best_score = min(score, best_score)
-        return best_score
+    return {"board": game.board.tolist(), "message": "Game continues", "move_number": move_number}
