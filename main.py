@@ -1,9 +1,8 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import HTTPException, Query
 from api.game import TicTacToe
-from loader import db
+from loader import db, app
 import numpy as np
 
-app = FastAPI()
 games = {}
 game_id_counter = 1
 

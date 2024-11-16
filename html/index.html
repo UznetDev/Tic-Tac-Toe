@@ -39,13 +39,9 @@
         async function startGame() {
             try {
                 const firstPlayer = document.querySelector('input[name="first_player"]:checked').value;
-                const response = await fetch('/start_game', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        player_piece: player,
-                        first_player: firstPlayer
-                    })
+
+                const response = await fetch(`http://tic-tac-toe-game.codernet.uz/start_game?player_piece=${player}&first_player=${firstPlayer}`, {
+                    method: 'GET'
                 });
 
                 if (!response.ok) {
@@ -71,16 +67,9 @@
                     alert('Invalid move!');
                     return;
                 }
-                const response = await fetch('/play', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        game_id: game_id,
-                        board: board,
-                        player: player,
-                        position: [x, y],
-                        move_number: move_number
-                    })
+
+                const response = await fetch(`http://tic-tac-toe-game.codernet.uz/play?game_id=${game_id}&board=${JSON.stringify(board)}&position=${x},${y}&player=${player}&move_number=${move_number}`, {
+                    method: 'GET'
                 });
 
                 if (!response.ok) {
